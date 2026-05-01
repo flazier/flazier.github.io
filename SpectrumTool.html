@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>反射率光譜畫圖</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root { --bg-body: #f0f2f5; --bg-card: #ffffff; --text-main: #333; --border: #ddd; }
+        [data-theme="dark"] { --bg-body: #121212; --bg-card: #1e1e1e; --text-main: #e0e0e0; --border: #444; }
+        body { font-family: sans-serif; margin: 0; padding: 20px; background: var(--bg-body); color: var(--text-main); transition: 0.3s; }
+        .wrapper { max-width: 98%; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+        
+        .card { background: var(--bg-card); padding: 20px; border-radius: 8px; border: 1px solid var(--border); box-shadow: 0 2px 4px rgba(0,0,0,0.05); box-sizing: border-box; }
+        /* 加大左側資料輸入區的寬度到 500px，讓版面更協調 */
+        .top-row { display: grid; grid-template-columns: 500px 1fr; gap: 20px; align-items: stretch; }
+        .chart-area { display: flex; flex-direction: column; }
+        
+        h3 { margin-top: 0; font-size: 16px; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px; }
+        .setting-item { margin-bottom: 8px; display: flex; align-items: center; justify-content: space-between; font-size: 13px; }
+        
+        input[type="text"] { padding: 6px; border: 1px solid var(--border); background: transparent; color: var(--text-main); border-radius: 4px; }
+        textarea { width: 100%; height: 55px; margin-bottom: 12px; font-family: monospace; padding: 8px; box-sizing: border-box; background: rgba(128,128,128,0.05); color: var(--text-main); border: 1px solid var(--border); border-radius: 4px; font-size: 11px; resize: none; }
+        button { cursor: pointer; border: none; border-radius: 4px; font-weight: bold; transition: 0.2s; }
+        
+        .btn-theme { background: #666; color: white; padding: 4px 10px; font-size: 12px; border-radius: 4px; }
+        .btn-png { background: #007aff; color: white; padding: 8px 15px; font-size: 13px; }
+        .btn-jpg { background: #28a745; color: white; padding: 8px 15px; font-size: 13px; margin-left: 5px; }
+
+        /* 左側資料輸入區 */
+        .controls { display: flex; flex-direction: column; }
+        .input-group { margin-bottom: 5px; }
+        .name-box { width: 100%; max-width: 200px; padding: 4px 8px; border: 1px solid var(--border); background: transparent; color: var(--text-main); border-radius: 4px; font-weight: bold; margin-bottom: 4px; }
+        
+        /* 右側色票概覽區：取消 max-width 讓色票自動填滿無空白 */
+        .swatch-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; height: calc(100% - 35px); min-height: 280px; }
+        .swatch-card { border: 1px solid var(--border); border-radius: 8px; display: flex; flex-direction: column; overflow: hidden; background: var(--bg-card); }
+        .swatch-header { padding: 8px 12px; font-weight: bold; font-size: 14px; background: rgba(128,128,128,0.05); border-bottom: 1px solid var(--border); }
+        /* 色塊拉大，文字齊頭往下排列 */
+        .swatch-color { height: 140px; border-bottom: 1px solid var(--border); flex-shrink: 0; }
+        .swatch-info { padding: 12px; flex-grow: 1; font-size: 13px; display: flex; flex-direction: column; justify-content: flex-start; gap: 6px; }
+        .data-row { display: flex; justify-content: space-between; font-family: monospace; margin-bottom: 0; }
+        .data-row span:first-child { color: #888; }
+        .btn-modal { width: 100%; padding: 10px; border: none; background: rgba(128,128,128,0.1); cursor: pointer; color: var(--text-main); font-weight: bold; border-top: 1px solid var(--border); font-size: 12px; }
+        .btn-modal:hover { background: rgba(128,128,128,0.2); }
+
+        /* 圖表區 */
+        .chart-config-bar { display: flex; align-items: center; gap: 15px; padding: 5px 0 15px 0; font-size: 13px; flex-wrap: wrap; }
+        .chart-config-bar input[type="color"] { border: 1px solid var(--border); cursor: pointer; padding: 0; width: 30px; height: 20px; vertical-align: middle; background: transparent; }
+        .chart-config-bar label { display: flex; align-items: center; gap: 4px; margin: 0; cursor: pointer; }
+        
+        .canvas-outer { width: 100%; overflow-x: auto; padding: 10px 0; border: 1px solid var(--border); border-radius: 4px; display: flex; justify-content: center; background: var(--bg-card); }
+        .canvas-container { width: 850px; height: 300px; position: relative; transition: none; }
+        
+        .slider-box { width: 100%; max-width: 800px; margin: 15px auto 0 auto; padding-top: 10px; font-size: 12px; position: relative; }
+        .slider-row { display: flex; align-items: center; gap: 15px; margin-bottom: 10px; }
+        .slider-row label { margin: 0; width: 60px; font-size: 12px; flex-shrink: 0; }
+        .slider-row input[type="range"] { flex-grow: 1; cursor: pointer; }
+
+        /* 滑桿提示框 (Tooltip) */
+        #sliderTooltip {
+            position: absolute;
+            display: none;
+            background: rgba(0, 0, 0, 0.75);
+            color: #fff;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-family: monospace;
+            pointer-events: none;
+            z-index: 9999;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            white-space: nowrap;
+        }
+        #sliderTooltip::after {
+            content: '';
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            border-width: 5px;
+            border-style: solid;
+            border-color: rgba(0, 0, 0, 0.75) transparent transparent transparent;
+        }
+        [data-theme="dark"] #sliderTooltip {
+            background: rgba(255, 255, 255, 0.9);
+            color: #000;
+        }
+        [data-theme="dark"] #sliderTooltip::after {
+            border-color: rgba(255, 255, 255, 0.9) transparent transparent transparent;
+        }
+
+        /* Delta E 表格 */
+        .de-table { width: 100%; border-collapse: collapse; text-align: center; font-size: 13px; }
+        .de-table th { background: rgba(128,128,128,0.08); padding: 8px; border: 1px solid var(--border); }
+        .de-table td { padding: 8px; border: 1px solid var(--border); font-family: monospace; }
+
+        /* Modal 視窗 */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); z-index: 1000; justify-content: center; align-items: center; }
+        .modal-content { display: flex; background: var(--bg-card); border-radius: 8px; width: 680px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); position: relative; overflow: hidden; }
+        .modal-close { position: absolute; top: 10px; right: 15px; font-size: 22px; cursor: pointer; background: none; border: none; color: var(--text-main); font-weight: bold; line-height: 1; z-index: 10; padding: 5px; }
+        .modal-left { padding: 20px; border-right: 1px solid var(--border); display: flex; justify-content: center; align-items: center; background: rgba(128,128,128,0.05); }
+        canvas#modalCanvas { display: block; border-radius: 4px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .modal-right { padding: 25px; display: flex; flex-direction: column; flex-grow: 1; gap: 8px; }
+        .opt-row { margin-bottom: 5px; font-size: 13px; display: flex; align-items: center; gap: 6px; cursor: pointer; }
+        .btn-swatch { width: 100%; padding: 12px; font-size: 13px; margin-top: 5px; color: white; }
+    </style>
+</head>
+<body data-theme="light">
+
+<!-- 用於滑桿數值顯示的小對話框 -->
+<div id="sliderTooltip"></div>
+
+<div class="wrapper">
+    <!-- 頂部：左側資料輸入 + 右側色票概覽 -->
+    <div class="top-row">
+        <!-- 1. 資料輸入 -->
+        <div class="card controls">
+            <!-- 模式切換按鈕 -->
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 8px; margin-bottom: 12px;">
+                <h3 style="margin: 0; border: none; padding: 0;">1. 資料輸入</h3>
+                <button class="btn-theme" onclick="toggleTheme()">🌓 切換模式</button>
+            </div>
+            
+            <div class="input-group">
+                <input type="text" id="name0" class="name-box" value="Sample_1" oninput="processAll()">
+                <textarea id="data0" onclick="this.select()" oninput="processAll()"></textarea>
+            </div>
+            <div class="input-group">
+                <input type="text" id="name1" class="name-box" value="Sample_2" oninput="processAll()">
+                <textarea id="data1" onclick="this.select()" oninput="processAll()"></textarea>
+            </div>
+            <div class="input-group">
+                <input type="text" id="name2" class="name-box" value="Sample_3" oninput="processAll()">
+                <textarea id="data2" onclick="this.select()" oninput="processAll()"></textarea>
+            </div>
+            
+            <div style="display:flex; gap:12px; font-size:12px; border-top:1px solid var(--border); padding-top:10px;">
+                <label><input type="checkbox" id="vLab" checked onchange="processAll()"> Lab</label>
+                <label><input type="checkbox" id="vLCh" onchange="processAll()"> LCh</label>
+                <label><input type="checkbox" id="vXYZ" onchange="processAll()"> XYZ</label>
+                <label><input type="checkbox" id="vxyY" onchange="processAll()"> xyY</label>
+            </div>
+        </div>
+
+        <!-- 2. 色票概覽 -->
+        <div class="card">
+            <h3 style="margin-top: 0; margin-bottom: 12px;">2. 色票概覽</h3>
+            <div class="swatch-grid" id="swatch-grid">
+                <!-- 由 JavaScript 自動產生 3 個色票卡片 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 3. 圖表區 -->
+    <div class="card chart-area">
+        <h3>3. 光譜反射率圖表</h3>
+        
+        <div class="chart-config-bar">
+            <label>線條 1: <input type="color" id="color0" value="#ff3b30" oninput="processAll()"></label>
+            <label>線條 2: <input type="color" id="color1" value="#34c759" oninput="processAll()"></label>
+            <label>線條 3: <input type="color" id="color2" value="#007aff" oninput="processAll()"></label>
+            
+            <span style="margin-left: 10px; border-left: 1px solid var(--border); padding-left: 15px;">圖表背景:</span>
+            <label><input type="radio" name="bgMode" value="white" checked onchange="processAll()"> 白底</label>
+            <label><input type="radio" name="bgMode" value="black" onchange="processAll()"> 黑底</label>
+            <label style="margin-left: 5px;"><input type="checkbox" id="transparentBg" onchange="processAll()"> 透明 (下載生效)</label>
+            
+            <div style="margin-left: auto; display: flex; gap: 8px; align-items: center;">
+                圖片檔名: <input type="text" id="fileName" value="Spectrum_Data" style="width: 130px;">
+                <button class="btn-png" onclick="downloadImage('png')">下載 PNG</button>
+                <button class="btn-jpg" onclick="downloadImage('jpg')">下載 JPG</button>
+            </div>
+        </div>
+
+        <div class="canvas-outer">
+            <div id="resizeBox" class="canvas-container">
+                <canvas id="specChart"></canvas>
+            </div>
+        </div>
+
+        <div class="slider-box">
+            <div class="slider-row">
+                <label>寬度:</label>
+                <input type="range" id="widthSlider" min="400" max="1400" value="850" 
+                       oninput="resizePlot(); updateTooltip(event)" 
+                       onmouseenter="updateTooltip(event)" 
+                       onmouseleave="hideTooltip()" 
+                       ontouchstart="updateTooltip(event)" 
+                       ontouchmove="updateTooltip(event)" 
+                       ontouchend="hideTooltip()">
+            </div>
+            <div class="slider-row">
+                <label>高度:</label>
+                <input type="range" id="heightSlider" min="150" max="600" value="280" 
+                       oninput="resizePlot(); updateTooltip(event)" 
+                       onmouseenter="updateTooltip(event)" 
+                       onmouseleave="hideTooltip()" 
+                       ontouchstart="updateTooltip(event)" 
+                       ontouchmove="updateTooltip(event)" 
+                       ontouchend="hideTooltip()">
+            </div>
+        </div>
+    </div>
+
+    <!-- 4. 色差分析 -->
+    <div class="card">
+        <h3>4. 色差分析 (Delta E)</h3>
+        <table class="de-table">
+            <thead>
+                <tr>
+                    <th width="20%">組合</th>
+                    <th width="40%">ΔEab (1976)</th>
+                    <th width="40%">ΔE00 (2000)</th>
+                </tr>
+            </thead>
+            <tbody id="deBody"></tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Modal 彈窗 (預設隱藏，點擊背景可關閉) -->
+<div id="swatchModal" class="modal-overlay" onclick="closeModalBg(event)">
+    <div class="modal-content" onclick="event.stopPropagation()">
+        <button class="modal-close" onclick="closeModal()">×</button>
+        <div class="modal-left">
+            <canvas id="modalCanvas"></canvas>
+        </div>
+        <div class="modal-right">
+            <h3 style="margin-top:0; border-bottom: 1px solid var(--border); padding-bottom: 10px;">顯示內容設定</h3>
+            <label class="opt-row"><input type="checkbox" id="mLab" checked onchange="drawModal()"> Lab</label>
+            <label class="opt-row"><input type="checkbox" id="mLCh" checked onchange="drawModal()"> LCh</label>
+            <label class="opt-row"><input type="checkbox" id="mXYZ" onchange="drawModal()"> XYZ</label>
+            <label class="opt-row"><input type="checkbox" id="mxyY" onchange="drawModal()"> xyY</label>
+            
+            <div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px;">
+                <button class="btn-swatch" style="background: #28a745;" onclick="downloadSwatch('spot')">下載純色塊 JPG</button>
+                <button class="btn-swatch" style="background: #007aff;" onclick="downloadSwatch('full')">下載完整色票 JPG</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let chart, activeIdx = 0;
+    const waves = Array.from({length: 36}, (_, i) => 380 + i * 10);
+    window.store = [null, null, null];
+    let currentModalIdx = 0;
+
+    // 1. 主題與背景切換
+    function toggleTheme() {
+        const body = document.body;
+        const isDark = body.getAttribute('data-theme') === 'dark';
+        body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+        
+        // 黑白底色自動連動
+        document.querySelector(`input[name="bgMode"][value="${isDark ? 'white' : 'black'}"]`).checked = true;
+        processAll();
+    }
+
+    // 滑桿 Tooltip 顯示
+    function updateTooltip(e) {
+        const tooltip = document.getElementById('sliderTooltip');
+        tooltip.style.display = 'block';
+        tooltip.innerText = e.target.value + ' px';
+        
+        const rect = e.target.getBoundingClientRect();
+        const min = parseFloat(e.target.min);
+        const max = parseFloat(e.target.max);
+        const val = parseFloat(e.target.value);
+        const percent = (val - min) / (max - min);
+        
+        // 考慮原生游標的寬度偏差，大約 16px 左右
+        const thumbOffset = 8 - (percent * 16); 
+        const thumbX = rect.left + (percent * rect.width) + thumbOffset;
+        
+        tooltip.style.left = thumbX + 'px';
+        tooltip.style.top = (rect.top - 30 + window.scrollY) + 'px'; // 在游標上方 30px
+        tooltip.style.transform = 'translateX(-50%)';
+    }
+
+    function hideTooltip() {
+        document.getElementById('sliderTooltip').style.display = 'none';
+    }
+
+    // 2. 彈窗控制
+    function openModal(idx) {
+        currentModalIdx = idx;
+        if (!window.store[idx]) return alert("請先輸入有效的數據！");
+        document.getElementById('swatchModal').style.display = 'flex';
+        drawModal();
+    }
+    function closeModal() { document.getElementById('swatchModal').style.display = 'none'; }
+    function closeModalBg(e) { if (e.target.id === 'swatchModal') closeModal(); }
+
+    // 3. 圖表大小控制
+    function resizePlot() {
+        const wSlider = document.getElementById('widthSlider');
+        const hSlider = document.getElementById('heightSlider');
+        const box = document.getElementById('resizeBox');
+        
+        if (wSlider && hSlider && box) {
+            box.style.width = wSlider.value + 'px';
+            box.style.height = hSlider.value + 'px';
+            if (chart) chart.resize();
+        }
+    }
+
+    // 4. 初始化圖表
+    function initChart() {
+        const ctx = document.getElementById('specChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: waves,
+                datasets: [
+                    { label: '', data: [], borderColor: '', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.1 },
+                    { label: '', data: [], borderColor: '', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.1 },
+                    { label: '', data: [], borderColor: '', borderWidth: 2, pointRadius: 0, fill: false, tension: 0.1 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { right: 20, left: 10, bottom: 5, top: 10 } },
+                scales: {
+                    x: {
+                        ticks: { color: () => getThemeColor('text'), font: { size: 10 } },
+                        grid: { color: () => getThemeColor('grid') }
+                    },
+                    y: {
+                        min: 0, max: 1.0,
+                        ticks: { stepSize: 0.2, color: () => getThemeColor('text'), font: { size: 10 } },
+                        grid: { color: () => getThemeColor('grid') }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: true,
+                        position: 'top',
+                        labels: {
+                            color: () => getThemeColor('text'),
+                            usePointStyle: false,
+                            boxWidth: 35,
+                            generateLabels: function(chart) {
+                                const data = chart.data;
+                                if (data.labels.length && data.datasets.length) {
+                                    let labels = data.datasets.map(function(dataset, i) {
+                                        return {
+                                            text: dataset.label,
+                                            // 圖例功能：填色為Lab顏色，邊框為下方選擇的線條色
+                                            fillStyle: window.store[i] ? window.store[i].rgb : dataset.borderColor,
+                                            strokeStyle: dataset.borderColor,
+                                            lineWidth: 2,
+                                            hidden: !chart.isDatasetVisible(i),
+                                            datasetIndex: i,
+                                            // 加入字體顏色綁定，切換黑白底時可見
+                                            fontColor: getThemeColor('text')
+                                        };
+                                    });
+                                    // 下載圖片時，自動剔除被點擊隱藏的線條圖例
+                                    if (window.isExporting) {
+                                        labels = labels.filter(l => !l.hidden);
+                                    }
+                                    return labels;
+                                }
+                                return [];
+                            }
+                        }
+                    }
+                }
+            },
+            plugins: [{
+                id: 'customBg',
+                beforeDraw: (chart) => {
+                    const ctx = chart.ctx;
+                    ctx.save();
+                    ctx.globalCompositeOperation = 'destination-over';
+                    const isTrans = document.getElementById('transparentBg').checked;
+                    const bgMode = document.querySelector('input[name="bgMode"]:checked').value;
+                    ctx.fillStyle = isTrans ? 'rgba(0,0,0,0)' : (bgMode === 'black' ? '#121212' : '#ffffff');
+                    ctx.fillRect(0, 0, chart.width, chart.height);
+                    ctx.restore();
+                }
+            }]
+        });
+    }
+
+    function getThemeColor(type) {
+        const bgMode = document.querySelector('input[name="bgMode"]:checked').value;
+        if (type === 'text') return bgMode === 'black' ? '#bbbbbb' : '#444444';
+        if (type === 'grid') return bgMode === 'black' ? '#333333' : '#e5e5e5';
+    }
+
+    // 5. 資料處理與更新
+    function processAll() {
+        if (!chart) return;
+        
+        const grid = document.getElementById('swatch-grid');
+        grid.innerHTML = ""; // 清空舊的色票卡
+
+        [0, 1, 2].forEach(i => {
+            const nameElem = document.getElementById('name' + i);
+            const dataElem = document.getElementById('data' + i);
+            const colorElem = document.getElementById('color' + i);
+
+            if (!nameElem || !dataElem || !colorElem) return;
+
+            const name = nameElem.value;
+            const raw = dataElem.value.trim();
+            const lineCol = colorElem.value;
+            
+            chart.data.datasets[i].label = name;
+            chart.data.datasets[i].borderColor = lineCol;
+            window.store[i] = null;
+
+            const arr = raw.split(/[\s, \t\n]+/).map(Number).filter(n => !isNaN(n));
+            if (arr.length >= 9) {
+                const lab = { L: arr[6], a: arr[7], b: arr[8] };
+                const xyz = { X: arr[0], Y: arr[1], Z: arr[2] };
+                const xyy = { x: arr[3], y: arr[4], Y: arr[5] };
+                const C = Math.sqrt(lab.a**2 + lab.b**2);
+                let h = Math.atan2(lab.b, lab.a) * 180 / Math.PI; if(h < 0) h += 360;
+                
+                const rgb = labToRgb(lab.L, lab.a, lab.b);
+                window.store[i] = { name, lab, xyz, xyy, lch: { C, h }, rgb, lineCol };
+                
+                // 動態生成色票卡片到右上方區塊
+                grid.innerHTML += `
+                    <div class="swatch-card">
+                        <div class="swatch-header">${name}</div>
+                        <div class="swatch-color" style="background:${rgb}"></div>
+                        <div class="swatch-info">${getMini(window.store[i])}</div>
+                        <button class="btn-modal" onclick="openModal(${i})">下載設定 (預覽)</button>
+                    </div>
+                `;
+
+                const spec = arr.slice(-36);
+                if(spec.length === 36) chart.data.datasets[i].data = spec;
+            }
+        });
+
+        // 寫入深淺主題設定的顏色
+        chart.options.scales.x.ticks.color = getThemeColor('text');
+        chart.options.scales.x.grid.color = getThemeColor('grid');
+        chart.options.scales.y.ticks.color = getThemeColor('text');
+        chart.options.scales.y.grid.color = getThemeColor('grid');
+        chart.options.plugins.legend.labels.color = getThemeColor('text');
+
+        chart.update('none');
+        updateDE();
+        if(document.getElementById('swatchModal').style.display === 'flex') drawModal();
+    }
+
+    function getMini(d) {
+        let h = "";
+        const row = (lbl, val) => `<div class="data-row"><span>${lbl}</span><span>${val}</span></div>`;
+        if(document.getElementById('vLab').checked) { h += row("L", d.lab.L.toFixed(2)); h += row("a", d.lab.a.toFixed(2)); h += row("b", d.lab.b.toFixed(2)); }
+        if(document.getElementById('vLCh').checked) h += row("C/h°", `${d.lch.C.toFixed(1)} / ${d.lch.h.toFixed(1)}°`);
+        if(document.getElementById('vXYZ').checked) h += row("XYZ", `${d.xyz.X.toFixed(1)}, ${d.xyz.Y.toFixed(1)}, ${d.xyz.Z.toFixed(1)}`);
+        if(document.getElementById('vxyY').checked) h += row("xyY", `${d.xyy.x.toFixed(3)}, ${d.xyy.y.toFixed(3)}, ${d.xyy.Y.toFixed(1)}`);
+        return h;
+    }
+
+    function labToRgb(L, a, b) {
+        let y = (L + 16) / 116, x = a / 500 + y, z = y - b / 200;
+        [x, y, z] = [x, y, z].map(v => v**3 > 0.008856 ? v**3 : (v - 16/116) / 7.787);
+        x *= 95.047; y *= 100.0; z *= 108.883;
+        let r = x * 3.2406 + y * -1.5372 + z * -0.4986, g = x * -0.9689 + y * 1.8758 + z * 0.0415, b_ = x * 0.0557 + y * -0.2040 + z * 1.0570;
+        [r, g, b_] = [r, g, b_].map(v => (v/100 <= 0.0031308 ? 12.92 * (v/100) : 1.055 * (Math.pow(v/100, 1/2.4)) - 0.055) * 255);
+        return `rgb(${Math.max(0,Math.min(255,r))},${Math.max(0,Math.min(255,g))},${Math.max(0,Math.min(255,b_))})`;
+    }
+
+    function deltaE2000(lab1, lab2) {
+        const d2r = d => d * Math.PI / 180, r2d = r => r * 180 / Math.PI;
+        let L1 = lab1.L, a1 = lab1.a, b1 = lab1.b, L2 = lab2.L, a2 = lab2.a, b2 = lab2.b;
+        let avgL = (L1 + L2) / 2, C1 = Math.sqrt(a1**2 + b1**2), C2 = Math.sqrt(a2**2 + b2**2), avgC = (C1 + C2) / 2;
+        let G = 0.5 * (1 - Math.sqrt(Math.pow(avgC, 7) / (Math.pow(avgC, 7) + Math.pow(25, 7)))), a1p = (1 + G) * a1, a2p = (1 + G) * a2;
+        let C1p = Math.sqrt(a1p**2 + b1**2), C2p = Math.sqrt(a2p**2 + b2**2), avgCp = (C1p + C2p) / 2;
+        let h1p = r2d(Math.atan2(b1, a1p)); if(h1p < 0) h1p += 360;
+        let h2p = r2d(Math.atan2(b2, a2p)); if(h2p < 0) h2p += 360;
+        let avgHp = Math.abs(h1p - h2p) > 180 ? (h1p + h2p + 360) / 2 : (h1p + h2p) / 2;
+        let T = 1 - 0.17 * Math.cos(d2r(avgHp - 30)) + 0.24 * Math.cos(d2r(2 * avgHp)) + 0.32 * Math.cos(d2r(3 * avgHp + 6)) - 0.2 * Math.cos(d2r(4 * avgHp - 63));
+        let dHp = h2p - h1p; if(Math.abs(dHp) > 180) dHp = h2p <= h1p ? dHp + 360 : dHp - 360;
+        let dL = L2 - L1, dCp = C2p - C1p, dH = 2 * Math.sqrt(C1p * C2p) * Math.sin(d2r(dHp) / 2);
+        let SL = 1 + (0.015 * Math.pow(avgL - 50, 2)) / Math.sqrt(20 + Math.pow(avgL - 50, 2)), SC = 1 + 0.045 * avgCp, SH = 1 + 0.015 * avgCp * T;
+        let dTheta = 30 * Math.exp(-Math.pow((avgHp - 275) / 25, 2)), RC = 2 * Math.sqrt(Math.pow(avgCp, 7) / (Math.pow(avgCp, 7) + Math.pow(25, 7))), RT = -RC * Math.sin(d2r(2 * dTheta));
+        return Math.sqrt(Math.pow(dL/SL, 2) + Math.pow(dCp/SC, 2) + Math.pow(dH/SH, 2) + RT * (dCp/SC) * (dH/SH));
+    }
+
+    function updateDE() {
+        const pairs = [[0,1], [0,2], [1,2]]; 
+        const tbody = document.getElementById('deBody');
+        tbody.innerHTML = "";
+        pairs.forEach(([i1, i2]) => {
+            const d1 = window.store[i1], d2 = window.store[i2];
+            if (!d1 || !d2) return;
+            const de76 = Math.sqrt(Math.pow(d1.lab.L-d2.lab.L,2) + Math.pow(d1.lab.a-d2.lab.a,2) + Math.pow(d1.lab.b-d2.lab.b,2));
+            const de00 = deltaE2000(d1.lab, d2.lab);
+            tbody.innerHTML += `<tr><td>${d1.name} vs ${d2.name}</td><td>${de76.toFixed(2)}</td><td>${de00.toFixed(2)}</td></tr>`;
+        });
+    }
+
+    // Modal Canvas 繪製：加大畫布與固定文字距離
+    function drawModal() {
+        const d = window.store[currentModalIdx];
+        if(!d) return;
+        const canvas = document.getElementById('modalCanvas'), ctx = canvas.getContext('2d');
+        const ratio = window.devicePixelRatio || 2;
+        
+        // 絕對固定畫布寬度與高度為 340x520，全勾選6行資訊也完全不會出界
+        const cw = 340, ch = 520; 
+        canvas.width = cw * ratio; canvas.height = ch * ratio;
+        canvas.style.width = cw + 'px'; canvas.style.height = ch + 'px';
+        ctx.scale(ratio, ratio);
+
+        const isD = document.body.getAttribute('data-theme') === 'dark';
+        const bg = isD ? '#1e1e1e' : '#ffffff';
+        const txt = isD ? '#eeeeee' : '#333333';
+
+        ctx.fillStyle = bg; ctx.fillRect(0, 0, cw, ch);
+        
+        // 名稱
+        ctx.fillStyle = txt; ctx.font = "bold 22px sans-serif"; ctx.textAlign = "left";
+        ctx.fillText(d.name, 25, 38); 
+
+        // 色塊：放大顯示
+        ctx.fillStyle = d.rgb; ctx.beginPath(); ctx.roundRect(25, 55, 290, 180, 8); ctx.fill();
+
+        // 數值：齊頭往下排，固定距離色塊下方，絕不往上浮
+        ctx.font = "16px monospace";
+        let y = 280; 
+        
+        const drawRow = (l, v) => {
+            ctx.fillStyle = isD ? '#aaa' : '#777'; ctx.textAlign = "left"; ctx.fillText(l, 30, y);
+            ctx.fillStyle = txt; ctx.textAlign = "right"; ctx.fillText(v, 310, y);
+            y += 32; // 行距
+        };
+
+        if(document.getElementById('mLab').checked) { drawRow("L", d.lab.L.toFixed(2)); drawRow("a", d.lab.a.toFixed(2)); drawRow("b", d.lab.b.toFixed(2)); }
+        if(document.getElementById('mLCh').checked) drawRow("C/h", `${d.lch.C.toFixed(2)} / ${d.lch.h.toFixed(1)}°`);
+        if(document.getElementById('mXYZ').checked) drawRow("XYZ", `${d.xyz.X.toFixed(1)}, ${d.xyz.Y.toFixed(1)}, ${d.xyz.Z.toFixed(1)}`);
+        if(document.getElementById('mxyY').checked) drawRow("xyY", `${d.xyy.x.toFixed(3)}, ${d.xyy.y.toFixed(3)}, ${d.xyy.Y.toFixed(1)}`);
+    }
+
+    function downloadSwatch(type) {
+        const d = window.store[currentModalIdx];
+        if(!d) return;
+        if (type === 'spot') {
+            const t = document.createElement('canvas'), ctx = t.getContext('2d');
+            t.width = 500; t.height = 500;
+            ctx.fillStyle = d.rgb; ctx.fillRect(0,0,500,500);
+            const a = document.createElement('a'); a.download = `${d.name}_color.jpg`;
+            a.href = t.toDataURL("image/jpeg", 1.0); a.click();
+        } else {
+            const cvs = document.getElementById('modalCanvas');
+            const a = document.createElement('a'); a.download = `${d.name}.jpg`;
+            a.href = cvs.toDataURL("image/jpeg", 1.0); a.click();
+        }
+    }
+
+    function downloadImage(format) {
+        // 設定導出標記並強制無動畫更新，以確保完美剔除被隱藏的線條圖例
+        window.isExporting = true;
+        chart.update('none'); 
+
+        const originalCanvas = document.getElementById('specChart');
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = originalCanvas.width;
+        tempCanvas.height = originalCanvas.height;
+        const tCtx = tempCanvas.getContext('2d');
+
+        const isTransparent = document.getElementById('transparentBg').checked;
+        const bgMode = document.querySelector('input[name="bgMode"]:checked').value;
+        const bgColor = bgMode === 'black' ? '#121212' : '#ffffff';
+
+        if (format === 'jpg') {
+            tCtx.fillStyle = isTransparent ? '#ffffff' : bgColor;
+            tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        } else if (!isTransparent) {
+            tCtx.fillStyle = bgColor;
+            tCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+        }
+
+        tCtx.drawImage(originalCanvas, 0, 0);
+
+        const link = document.createElement('a');
+        link.download = `${document.getElementById('fileName').value}_頻譜圖.${format}`;
+        link.href = tempCanvas.toDataURL(format === 'jpg' ? 'image/jpeg' : 'image/png', 1.0);
+        link.click();
+
+        // 恢復圖表狀態
+        window.isExporting = false;
+        chart.update('none'); 
+    }
+
+    window.onload = () => {
+        initChart();
+        resizePlot();
+        const example = "19.3 20.2 23.5 0.31 0.33 20.2 52.1 12.5 -5.8 0 0 0.1 0.15 0.25 0.4 0.6 0.75 0.85 0.9 0.92 0.93 0.92 0.9 0.85 0.78 0.7 0.62 0.52 0.42 0.35 0.3 0.25 0.2 0.18 0.16 0.14 0.12 0.1 0.08 0.07 0.06 0.05 0.04 0.03 0.02 0.02 0.02";
+        
+        document.getElementById('data0').value = example;
+        document.getElementById('data1').value = example.split(' ').map(v => (parseFloat(v)*0.85).toFixed(2)).join(' ');
+        document.getElementById('data2').value = example.split(' ').map(v => (parseFloat(v)*0.7).toFixed(2)).join(' ');
+        processAll();
+    };
+</script>
+
+</body>
+</html>
