@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>圖文理光落騎馬釘</title>
+    <!-- 引入 pdf-lib 與 SortableJS -->
+    <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
+    <style>
+        :root {
+            --primary: #2f3542;
+            --primary-light: #57606f;
+            --accent: #1e90ff;
+            --accent-light: #e1e8ff;
+            --danger: #ff4757;
+            --bg-main: #f1f2f6;
+            --bg-card: #ffffff;
+            --border-color: #ced6e0;
+        }
+
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif; background: var(--bg-main); margin: 0; padding: 20px; color: var(--primary); font-size: 14px; }
+        .main-layout { display: grid; grid-template-columns: 1fr 340px; gap: 20px; max-width: 1200px; margin: 0 auto; }
+        
+        .panel { background: var(--bg-card); border-radius: 12px; padding: 22px; box-shadow: 0 4px 12px rgba(0,0,0,0.06); border: 1px solid rgba(0,0,0,0.03); margin-bottom: 20px; }
+        .panel-right { height: calc(100vh - 84px); position: sticky; top: 20px; display: flex; flex-direction: column; }
+        
+        h2 { margin: 0 0 15px 0; font-size: 18px; color: var(--primary); border-bottom: 2px solid #f1f2f6; padding-bottom: 10px; }
+
+        /* 表單樣式 */
+        .form-group { display: flex; flex-direction: column; margin-bottom: 15px; }
+        .form-group label { font-size: 13px; font-weight: bold; margin-bottom: 6px; color: var(--primary-light); }
+        select, input[type="text"], input[type="number"] { padding: 9px 12px; border: 1px solid var(--border-color); border-radius: 6px; font-size: 13px; outline: none; background: #fff; transition: 0.2s; }
+        select:focus, input:focus { border-color: var(--accent); }
+
+        .alert-box { background: #ffeaa7; border-left: 4px solid #f1c40f; color: #7f8c8d; padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 15px; line-height: 1.5; font-weight: 500; }
+
+        /* 自訂尺寸區塊 (3排連動) */
+        .custom-size-box { display: none; background: #f8faff; border: 1px dashed var(--accent); border-radius: 8px; padding: 16px; margin-bottom: 15px; }
+        .custom-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+        .custom-row:last-child { margin-bottom: 0; }
+        .custom-label { width: 120px; font-size: 12px; font-weight: bold; color: var(--primary-light); }
+        .custom-inputs { display: flex; align-items: center; gap: 6px; flex: 1; }
+        .custom-inputs input { width: 65px; text-align: center; }
+        .link-icon { color: var(--accent); font-weight: bold; padding: 0 5px; font-size: 16px; }
+
+        /* 補償設定區 */
+        .compensation-group { background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 15px; margin-bottom: 15px; }
+        .compensation-header { display: flex; align-items: center; gap: 8px; font-weight: bold; font-size: 13px; margin-bottom: 12px; cursor: pointer; }
+        .compensation-sub { display: flex; gap: 15px; align-items: flex-start; }
+        .disabled-sub { opacity: 0.35; pointer-events: none; }
+        
+        .flex-item { flex: 1; display: flex; flex-direction: column; }
+        .flex-item label { font-size: 12px; margin-bottom: 5px; font-weight: bold; color: var(--primary-light);}
+        .thickness-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
+        
+        /* 唯讀輸入框狀態 */
+        input[readonly] { background-color: #e1e2e6 !important; color: #7f8c8d !important; cursor: not-allowed !important; border-color: #d1d8e0 !important; }
+
+        /* 上傳與清單區 */
+        .upload-container { border: 2px dashed #70a1ff; background: #f8faff; border-radius: 8px; transition: all 0.2s; position: relative; }
+        .upload-container.drag-over { background: #e1e8ff; border-color: #1e90ff; }
+        
+        .empty-state { padding: 40px 20px; text-align: center; cursor: pointer; }
+        .empty-icon { font-size: 36px; margin-bottom: 10px; color: #70a1ff; }
+        .empty-text { font-size: 14px; font-weight: bold; color: var(--primary-light); }
+
+        .list-state { display: none; padding: 15px; }
+        .list-header { display: flex; gap: 10px; margin-bottom: 12px; }
+        .btn-action { background: var(--accent); color: white; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; font-weight: bold; flex: 1; transition: 0.1s;}
+        .btn-outline { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+        .btn-outline:hover { background: #eef5ff; }
+
+        #pageList { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border-color); border-radius: 6px; max-height: 250px; overflow-y: auto; background: #fff; }
+        #pageList li { padding: 8px 12px; border-bottom: 1px solid #edf2f7; display: flex; justify-content: space-between; align-items: center; font-size: 13px; }
+        #pageList li:last-child { border-bottom: none; }
+        
+        .item-left { display: flex; align-items: center; flex: 1; overflow: hidden; }
+        .handle { color: #a1a1a1; margin-right: 12px; font-size: 14px; cursor: grab; user-select: none; }
+        .handle:active { cursor: grabbing; }
+        .page-name-text { cursor: grab; user-select: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .page-name-text:active { cursor: grabbing; }
+
+        .btn-cross { background: none; border: none; color: var(--danger); font-size: 16px; cursor: pointer; padding: 4px 8px; font-weight: bold; transition: transform 0.1s; }
+        .btn-cross:hover { transform: scale(1.2); }
+
+        .status-bar { margin-top: 12px; font-weight: bold; padding: 10px; border-radius: 6px; font-size: 12px; text-align: center; }
+        .status-ok { background: #dff9fb; color: #009432; }
+        .status-warn { background: #ffeaa7; color: #d35400; }
+
+        /* 底部按鈕 */
+        .btn-submit { background: #2ed573; color: white; border: none; width: 100%; padding: 15px; font-size: 16px; font-weight: bold; border-radius: 8px; cursor: pointer; box-shadow: 0 4px 8px rgba(46, 213, 115, 0.2); transition: 0.2s; }
+        .btn-submit:hover { background: #26af5f; }
+        .loading { display: none; text-align: center; color: var(--accent); font-weight: bold; margin-top: 10px; font-size: 12px; }
+
+        /* 右側藍圖 */
+        .blueprint-container { flex: 1; overflow-y: auto; margin-top: 10px; padding-right: 5px; }
+        .sheet-card { border: 1px solid var(--border-color); border-radius: 8px; padding: 10px; margin-bottom: 12px; background: #fafbfc; }
+        .sheet-title { font-size: 12px; font-weight: bold; color: var(--primary-light); margin-bottom: 8px; text-transform: uppercase; }
+        .mini-spread { display: grid; grid-template-columns: 1fr 1fr; border: 1.5px solid #a4b0be; border-radius: 4px; background: #ffffff; height: 55px; }
+        .mini-page { display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; color: #2f3542; }
+        .mini-page:first-child { border-right: 1.5px dashed #ced6e0; }
+        .mini-page.blank { background: #f1f2f6; color: #a1a1a1; font-weight: normal; font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<div class="main-layout">
+    <!-- 左側面板 -->
+    <div>
+        <div class="panel">
+            <h2>開本與裝訂配置</h2>
+            
+            <div class="form-group">
+                <label>開本規格</label>
+                <select id="presetSelect" onchange="applyPreset()">
+                    <option value="A4" selected>A4開本 (大A4 拼 A3大紙裝訂)</option>
+                    <option value="A5">A5開本 (大A5 拼 A4大紙裝訂)</option>
+                    <option value="custom">自訂尺寸</option>
+                </select>
+            </div>
+            
+            <!-- 三排智慧連動自訂尺寸區塊 -->
+            <div id="customSizeGroup" class="custom-size-box">
+                <!-- 1. 手邊檔案 -->
+                <div class="custom-row">
+                    <div class="custom-label">1. 單頁完稿檔案</div>
+                    <div class="custom-inputs">
+                        <input type="number" id="c_pageW" value="216" title="單頁寬度"> <span style="font-size:12px; color:#57606f;">x</span>
+                        <input type="number" id="c_pageH" value="303" title="單頁高度"> <span style="font-size:12px; color:#57606f;">mm</span>
+                    </div>
+                </div>
+                <!-- 2. 拼版連動計算 -->
+                <div class="custom-row">
+                    <div class="custom-label" style="color:var(--accent);">2. 裁切與拼版連動</div>
+                    <div class="custom-inputs">
+                        <span style="font-size:11px;">內裁</span>
+                        <input type="number" id="c_bleed" value="3" style="width: 55px; border-color:var(--accent);"> 
+                        <span class="link-icon">⟷</span>
+                        <span style="font-size:11px;">展開</span>
+                        <input type="number" id="c_spread" value="426" style="width: 65px; border-color:var(--accent);">
+                        <span style="font-size:12px; color:#57606f;">mm</span>
+                    </div>
+                </div>
+                <!-- 3. 輸出大紙 -->
+                <div class="custom-row">
+                    <div class="custom-label">3. 輸出大紙底板</div>
+                    <div class="custom-inputs">
+                        <input type="number" id="c_paperW" value="440"> <span style="font-size:12px; color:#57606f;">x</span>
+                        <input type="number" id="c_paperH" value="313"> <span style="font-size:12px; color:#57606f;">mm</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="alert-box" id="presetAlert">
+                請將原始設計檔案製作成「含出血」的單頁尺寸，按照順序存成 PDF 後再行匯入。
+            </div>
+
+            <div class="form-group">
+                <label>裝訂與翻頁</label>
+                <select id="bindDirection" onchange="renderBlueprint()">
+                    <option value="right">右翻 (直書常規)</option>
+                    <option value="left">左翻 (橫書常規)</option>
+                </select>
+            </div>
+
+            <!-- 防爬移補償 -->
+            <div class="compensation-group">
+                <div class="compensation-header">
+                    <input type="checkbox" id="enableCreep" onchange="toggleCreep()">
+                    <label for="enableCreep" style="cursor:pointer; margin:0;">啟用防爬移補償 (紙厚修正)</label>
+                </div>
+                <div class="compensation-sub disabled-sub" id="creepSub">
+                    <div class="flex-item">
+                        <label>補償模式</label>
+                        <select id="creepMode">
+                            <option value="scale">整體等比縮放 (無損推薦)</option>
+                            <option value="shift">平移補償 (內容內推)</option>
+                        </select>
+                    </div>
+                    <div class="flex-item">
+                        <label>紙材選擇</label>
+                        <select id="paperDb" onchange="updateThickness()">
+                            <option value="0" selected>自訂條數</option>
+                            <option value="10">道林 80g</option>
+                            <option value="13">道林 100g</option>
+                            <option value="8.5">雪銅 100g</option>
+                            <option value="14.5">雪銅 150g</option>
+                        </select>
+                    </div>
+                    <div class="flex-item" style="max-width: 90px;">
+                        <label>單張厚度</label>
+                        <div class="thickness-row">
+                            <input type="number" id="paperThickness" value="10" step="0.1" style="width: 100%; min-width: 50px;">
+                            <span style="font-size: 12px; color: var(--primary-light); white-space: nowrap;">條</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>上傳檔案</h2>
+            <div class="upload-container" id="uploadContainer">
+                <div id="dropZoneEmpty" class="empty-state" onclick="document.getElementById('fileInput').click()">
+                    <div class="empty-icon">📄</div>
+                    <div class="empty-text">拖曳完稿 PDF 到此處，或點擊選取檔案</div>
+                </div>
+
+                <div id="listState" class="list-state">
+                    <div class="list-header">
+                        <button class="btn-action" onclick="document.getElementById('fileInput').click()">＋ 加入更多檔案</button>
+                        <button class="btn-action btn-outline" onclick="insertBlankPage()">＋ 插入空白頁</button>
+                    </div>
+                    <ul id="pageList"></ul>
+                    <div id="statusBar" class="status-bar status-warn">目前總計: 0 頁</div>
+                </div>
+                <input type="file" id="fileInput" multiple accept="application/pdf" style="display:none">
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>自訂輸出檔名</h2>
+            <div class="form-group" style="margin-bottom: 0;">
+                <input type="text" id="customFileNameVal" style="width: 100%; box-sizing: border-box;">
+            </div>
+        </div>
+
+        <button class="btn-submit" onclick="generateImposition()">開始落版</button>
+        <div id="loadingText" class="loading">正在本機進行純物理遮罩落版運算，請稍候...</div>
+    </div>
+
+    <!-- 右側藍圖 -->
+    <div class="panel-right">
+        <h2>拼版折臺示意 (藍圖預覽)</h2>
+        <div class="blueprint-container" id="blueprintContainer">
+            <div style="color:#a1a1a1; text-align:center; padding-top:40px; font-size:13px;">
+                請先上傳檔案，系統將在此生成拼版示意。
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 核心幾何數據配置 ---
+    const SPECS = {
+        'A4': { pW: 440, pH: 313, rW: 216, rH: 303, cW: 213, bleed: 3, alert: "【A4開本】單頁含出血 216x303，內裁 3mm，將置中落於 440x313 (A3大紙)。" },
+        'A5': { pW: 313, pH: 220, rW: 154.5, rH: 216, cW: 151.5, bleed: 3, alert: "【A5開本】單頁含出血 154.5x216，內裁 3mm，將置中落於 313x220 (A4大紙)。" }
+    };
+    
+    let activeSpec = SPECS['A4'];
+    let globalPages = []; 
+    const mmToPt = 72 / 25.4; 
+
+    window.onload = function() {
+        applyPreset();
+        updateThickness(); // 確保初始鎖定狀態正確
+        initSortable();
+        initDragAndDrop();
+        initTwoWayBinding();
+    };
+
+    // --- 開本介面與檔名處理 ---
+    function applyPreset() {
+        const presetKey = document.getElementById('presetSelect').value;
+        const alertBox = document.getElementById('presetAlert');
+        const customGroup = document.getElementById('customSizeGroup');
+        
+        const today = new Date();
+        const dateStr = today.getFullYear() + String(today.getMonth()+1).padStart(2, '0') + String(today.getDate()).padStart(2, '0');
+
+        if (presetKey === 'custom') {
+            alertBox.style.display = 'none';
+            customGroup.style.display = 'block';
+            document.getElementById('customFileNameVal').value = `名稱_${dateStr}_自訂尺寸落版`;
+        } else {
+            alertBox.style.display = 'block';
+            customGroup.style.display = 'none';
+            activeSpec = SPECS[presetKey];
+            alertBox.innerText = activeSpec.alert;
+            document.getElementById('customFileNameVal').value = `名稱_${dateStr}_${presetKey}騎馬釘落版`;
+        }
+        renderBlueprint();
+    }
+
+    // --- 自訂尺寸：雙向連動算式 ---
+    function initTwoWayBinding() {
+        const pageWInput = document.getElementById('c_pageW');
+        const bleedInput = document.getElementById('c_bleed');
+        const spreadInput = document.getElementById('c_spread');
+
+        // 當單頁寬度或內側裁切改變時 -> 算拼版寬度
+        const calcSpread = () => {
+            let pW = parseFloat(pageWInput.value) || 0;
+            let bl = parseFloat(bleedInput.value) || 0;
+            spreadInput.value = ((pW - bl) * 2).toFixed(1).replace(/\.0$/, ''); // 去除整數小數點
+        };
+
+        // 當拼版寬度改變時 -> 逆算內側裁切
+        const calcBleed = () => {
+            let pW = parseFloat(pageWInput.value) || 0;
+            let sp = parseFloat(spreadInput.value) || 0;
+            bleedInput.value = (pW - (sp / 2)).toFixed(1).replace(/\.0$/, '');
+        };
+
+        pageWInput.addEventListener('input', calcSpread);
+        bleedInput.addEventListener('input', calcSpread);
+        spreadInput.addEventListener('input', calcBleed);
+    }
+
+    // --- 紙厚防呆鎖定 ---
+    function toggleCreep() {
+        const sub = document.getElementById('creepSub');
+        document.getElementById('enableCreep').checked ? sub.classList.remove('disabled-sub') : sub.classList.add('disabled-sub');
+    }
+
+    function updateThickness() {
+        const selectVal = document.getElementById('paperDb').value;
+        const thickInput = document.getElementById('paperThickness');
+        
+        if (selectVal !== "0") {
+            // 選預設紙材：套用數字、變灰、鎖定
+            thickInput.value = selectVal;
+            thickInput.setAttribute('readonly', 'true');
+        } else {
+            // 選自訂條數：解鎖、恢復白底
+            thickInput.removeAttribute('readonly');
+        }
+    }
+
+    // --- 上傳與清單邏輯 ---
+    function initDragAndDrop() {
+        const container = document.getElementById('uploadContainer');
+        const fileInput = document.getElementById('fileInput');
+
+        container.addEventListener('dragover', (e) => { e.preventDefault(); container.classList.add('drag-over'); });
+        container.addEventListener('dragleave', () => { container.classList.remove('drag-over'); });
+        container.addEventListener('drop', (e) => {
+            e.preventDefault();
+            container.classList.remove('drag-over');
+            if (e.dataTransfer.files.length > 0) handleFiles(e.dataTransfer.files);
+        });
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) handleFiles(e.target.files);
+        });
+    }
+
+    async function handleFiles(files) {
+        for (let file of files) {
+            if (file.type !== "application/pdf") continue;
+            try {
+                const arrayBuffer = await file.arrayBuffer();
+                const pdfDoc = await PDFLib.PDFDocument.load(arrayBuffer);
+                const pageCount = pdfDoc.getPageCount();
+                for (let i = 0; i < pageCount; i++) {
+                    globalPages.push({ type: 'file', fileName: file.name, pageIndex: i, origFileBuffer: arrayBuffer, displayName: `${file.name} (第 ${i + 1} 頁)` });
+                }
+            } catch (e) { alert(`讀取失敗: ${file.name}`); }
+        }
+        renderList();
+    }
+
+    function insertBlankPage() {
+        globalPages.push({ type: 'blank', displayName: '[自動增補空白頁]' });
+        renderList();
+    }
+
+    function deletePage(index) {
+        globalPages.splice(index, 1);
+        renderList();
+    }
+
+    function initSortable() {
+        Sortable.create(document.getElementById('pageList'), {
+            animation: 150, handle: '.handle', 
+            onEnd: () => {
+                const lis = document.getElementById('pageList').children;
+                let newPages = [];
+                for (let li of lis) newPages.push(globalPages[parseInt(li.getAttribute('data-orig-index'))]);
+                globalPages = newPages;
+                renderList();
+            }
+        });
+    }
+
+    function renderList() {
+        const listEl = document.getElementById('pageList');
+        const emptyState = document.getElementById('dropZoneEmpty');
+        const listState = document.getElementById('listState');
+
+        if (globalPages.length === 0) {
+            emptyState.style.display = 'block';
+            listState.style.display = 'none';
+            renderBlueprint();
+            return;
+        }
+
+        emptyState.style.display = 'none';
+        listState.style.display = 'block';
+        listEl.innerHTML = '';
+        
+        globalPages.forEach((page, idx) => {
+            const li = document.createElement('li');
+            li.setAttribute('data-orig-index', idx);
+            li.innerHTML = `
+                <div class="item-left">
+                    <span class="handle">☰</span>
+                    <strong style="color:var(--accent); margin-right: 10px; width: 30px; display:inline-block;">P${idx + 1}</strong>
+                    <span class="page-name-text handle" style="margin-right:0;">${page.displayName}</span>
+                </div>
+                <button class="btn-cross" onclick="deletePage(${idx})">✕</button>
+            `;
+            listEl.appendChild(li);
+        });
+
+        const statusEl = document.getElementById('statusBar');
+        const count = globalPages.length;
+        if (count % 4 !== 0) {
+            statusEl.className = "status-bar status-warn";
+            statusEl.innerText = `總計: ${count} 頁 ⚠️ 缺 ${4 - (count % 4)} 頁，將在尾端自動補白`;
+        } else {
+            statusEl.className = "status-bar status-ok";
+            statusEl.innerText = `總計: ${count} 頁 ✅ 完美符合 4 的倍數`;
+        }
+        renderBlueprint();
+    }
+
+    // --- 右側藍圖預覽 ---
+    function renderBlueprint() {
+        const container = document.getElementById('blueprintContainer');
+        if (globalPages.length === 0) {
+            container.innerHTML = '<div style="color:#a1a1a1; text-align:center; padding-top:40px; font-size:13px;">請先上傳檔案，系統將在此生成拼版示意。</div>';
+            return;
+        }
+        container.innerHTML = '';
+        const isRightBind = document.getElementById('bindDirection').value === 'right';
+        let workingPages = [...globalPages];
+        while (workingPages.length % 4 !== 0) workingPages.push({ type: 'blank' });
+
+        const totalSheets = workingPages.length / 4;
+        for (let s = 0; s < totalSheets; s++) {
+            let fl = workingPages.length - (2 * s), fr = 1 + (2 * s);
+            let bl = 2 + (2 * s), br = workingPages.length - 1 - (2 * s);
+            if (!isRightBind) { [fl, fr] = [fr, fl]; [bl, br] = [br, bl]; }
+
+            container.appendChild(createSheetCard(`第 ${s + 1} 張紙 - 正面 (外側)`, fl, fr, workingPages));
+            container.appendChild(createSheetCard(`第 ${s + 1} 張紙 - 背面 (內側)`, bl, br, workingPages));
+        }
+    }
+
+    function createSheetCard(title, lNum, rNum, pages) {
+        const card = document.createElement('div'); card.className = 'sheet-card';
+        const lBlank = pages[lNum - 1].type === 'blank';
+        const rBlank = pages[rNum - 1].type === 'blank';
+        card.innerHTML = `
+            <div class="sheet-title">${title}</div>
+            <div class="mini-spread">
+                <div class="mini-page ${lBlank ? 'blank' : ''}">${lBlank ? '空白' : 'P'+lNum}</div>
+                <div class="mini-page ${rBlank ? 'blank' : ''}">${rBlank ? '空白' : 'P'+rNum}</div>
+            </div>`;
+        return card;
+    }
+
+    // ===================================================
+    // 👑 引擎：CropBox 無白畫面物理遮罩落版
+    // ===================================================
+    async function generateImposition() {
+        if (globalPages.length === 0) return alert("請先上傳檔案！");
+        document.getElementById('loadingText').style.display = 'block';
+
+        try {
+            let pW, pH, rW, rH, cW, bleed;
+            
+            // 如果選自訂尺寸，抓取面板即時輸入的數值
+            if (document.getElementById('presetSelect').value === 'custom') {
+                rW = parseFloat(document.getElementById('c_pageW').value);
+                rH = parseFloat(document.getElementById('c_pageH').value);
+                bleed = parseFloat(document.getElementById('c_bleed').value);
+                pW = parseFloat(document.getElementById('c_paperW').value);
+                pH = parseFloat(document.getElementById('c_paperH').value);
+                cW = rW - bleed; // 透過裁切量計算出裁切後的寬度
+            } else {
+                ({ pW, pH, rW, rH, cW, bleed } = activeSpec);
+            }
+
+            const ptPW = pW * mmToPt, ptPH = pH * mmToPt;
+            const ptRW = rW * mmToPt, ptRH = rH * mmToPt;
+            const ptCW = cW * mmToPt, ptBleed = bleed * mmToPt;
+
+            const enableCreep = document.getElementById('enableCreep').checked;
+            const creepMode = document.getElementById('creepMode').value;
+            const ptThickness = (parseFloat(document.getElementById('paperThickness').value) * 0.01) * mmToPt;
+            const isRightBind = document.getElementById('bindDirection').value === 'right';
+
+            let workingPages = [...globalPages];
+            while (workingPages.length % 4 !== 0) workingPages.push({ type: 'blank' });
+            const totalSheets = workingPages.length / 4;
+
+            const impositionDoc = await PDFLib.PDFDocument.create();
+            let cache = {};
+
+            for (let s = 0; s < totalSheets; s++) {
+                let fl = workingPages.length - (2 * s), fr = 1 + (2 * s);
+                let bl = 2 + (2 * s), br = workingPages.length - 1 - (2 * s);
+                if (!isRightBind) { [fl, fr] = [fr, fl]; [bl, br] = [br, bl]; }
+
+                await buildSheetSafe(impositionDoc, workingPages, cache, fl, fr, ptPW, ptPH, ptCW, ptRH, ptBleed, s, enableCreep, creepMode, ptThickness, 'FRONT');
+                await buildSheetSafe(impositionDoc, workingPages, cache, bl, br, ptPW, ptPH, ptCW, ptRH, ptBleed, s, enableCreep, creepMode, ptThickness, 'BACK');
+            }
+
+            const pdfBytes = await impositionDoc.save();
+            const blob = new Blob([pdfBytes], { type: "application/pdf" });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            let outName = document.getElementById('customFileNameVal').value.trim();
+            link.download = (outName || "落版檔案") + ".pdf";
+            link.click();
+
+        } catch (err) { alert("落版失敗: " + err.message); } 
+        finally { document.getElementById('loadingText').style.display = 'none'; }
+    }
+
+    async function buildSheetSafe(doc, pages, cache, lNum, rNum, pW, pH, cW, rH, bleed, sheetIdx, enableCreep, mode, thickness) {
+        const newPage = doc.addPage([pW, pH]);
+        const spreadW = cW * 2;
+        const curThickness = enableCreep ? sheetIdx * thickness : 0;
+        
+        let scale = 1.0, shift = 0;
+        if (enableCreep && curThickness > 0) {
+            if (mode === 'scale') scale = spreadW / (spreadW + curThickness);
+            if (mode === 'shift') shift = curThickness;
+        }
+
+        const finalTx = (pW / 2) - (cW * scale);
+        const finalTy = (pH / 2) - ((rH / 2) * scale);
+
+        // --- 左頁 ---
+        if (pages[lNum - 1].type === 'file') {
+            const srcDoc = await getSrcDoc(pages[lNum - 1], cache);
+            const srcPage = srcDoc.getPage(pages[lNum - 1].pageIndex);
+            const box = srcPage.getMediaBox();
+            
+            // 安全裁切 CropBox: 保留左側，限縮寬度為成品寬
+            srcPage.setCropBox(box.x, box.y, cW, rH);
+            const [embeddedL] = await doc.embedPages([srcPage]);
+            
+            newPage.drawPage(embeddedL, {
+                x: finalTx + shift, y: finalTy, width: cW * scale, height: rH * scale
+            });
+        }
+
+        // --- 右頁 ---
+        if (pages[rNum - 1].type === 'file') {
+            const srcDoc = await getSrcDoc(pages[rNum - 1], cache);
+            const srcPage = srcDoc.getPage(pages[rNum - 1].pageIndex);
+            const box = srcPage.getMediaBox();
+            
+            // 安全裁切 CropBox: 往右位移 bleed，限縮寬度為成品寬
+            srcPage.setCropBox(box.x + bleed, box.y, cW, rH);
+            const [embeddedR] = await doc.embedPages([srcPage]);
+            
+            newPage.drawPage(embeddedR, {
+                x: finalTx + (cW * scale) - shift, y: finalTy, width: cW * scale, height: rH * scale
+            });
+        }
+    }
+
+    async function getSrcDoc(item, cache) {
+        if (!cache[item.fileName]) {
+            const doc = await PDFLib.PDFDocument.load(item.origFileBuffer);
+            cache[item.fileName] = doc;
+        }
+        return cache[item.fileName];
+    }
+</script>
+
+</body>
+</html>
