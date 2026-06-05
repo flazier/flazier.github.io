@@ -2,7 +2,7 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>圖文理光落騎馬釘</title>
+    <title>臺藝圖文騎馬釘落版</title>
     <!-- 引入 pdf-lib 與 SortableJS -->
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Sortable/1.14.0/Sortable.min.js"></script>
@@ -11,7 +11,6 @@
             --primary: #2f3542;
             --primary-light: #57606f;
             --accent: #1e90ff;
-            --accent-light: #e1e8ff;
             --danger: #ff4757;
             --bg-main: #f1f2f6;
             --bg-card: #ffffff;
@@ -34,7 +33,7 @@
 
         .alert-box { background: #ffeaa7; border-left: 4px solid #f1c40f; color: #7f8c8d; padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 15px; line-height: 1.5; font-weight: 500; }
 
-        /* 自訂尺寸區塊 (3排連動) */
+        /* 自訂尺寸區塊 */
         .custom-size-box { display: none; background: #f8faff; border: 1px dashed var(--accent); border-radius: 8px; padding: 16px; margin-bottom: 15px; }
         .custom-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
         .custom-row:last-child { margin-bottom: 0; }
@@ -53,7 +52,6 @@
         .flex-item label { font-size: 12px; margin-bottom: 5px; font-weight: bold; color: var(--primary-light);}
         .thickness-row { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; }
         
-        /* 唯讀輸入框狀態 */
         input[readonly] { background-color: #e1e2e6 !important; color: #7f8c8d !important; cursor: not-allowed !important; border-color: #d1d8e0 !important; }
 
         /* 上傳與清單區 */
@@ -98,7 +96,7 @@
         .sheet-title { font-size: 12px; font-weight: bold; color: var(--primary-light); margin-bottom: 8px; text-transform: uppercase; }
         .mini-spread { display: grid; grid-template-columns: 1fr 1fr; border: 1.5px solid #a4b0be; border-radius: 4px; background: #ffffff; height: 55px; }
         .mini-page { display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 13px; color: #2f3542; }
-        .mini-page:first-child { border-right: 1.5px dashed #ced6e0; }
+        .mini-page:first-child { border-right: 1.5px solid #2f3542; } 
         .mini-page.blank { background: #f1f2f6; color: #a1a1a1; font-weight: normal; font-size: 11px; }
     </style>
 </head>
@@ -113,15 +111,13 @@
             <div class="form-group">
                 <label>開本規格</label>
                 <select id="presetSelect" onchange="applyPreset()">
-                    <option value="A4" selected>A4開本 (大A4 拼 A3大紙裝訂)</option>
-                    <option value="A5">A5開本 (大A5 拼 A4大紙裝訂)</option>
+                    <option value="A4" selected>A4開本 (A4拼A3大紙裝訂)</option>
+                    <option value="A5">A5開本 (A5拼A4大紙裝訂)</option>
                     <option value="custom">自訂尺寸</option>
                 </select>
             </div>
             
-            <!-- 三排智慧連動自訂尺寸區塊 -->
             <div id="customSizeGroup" class="custom-size-box">
-                <!-- 1. 手邊檔案 -->
                 <div class="custom-row">
                     <div class="custom-label">1. 單頁完稿檔案</div>
                     <div class="custom-inputs">
@@ -129,7 +125,6 @@
                         <input type="number" id="c_pageH" value="303" title="單頁高度"> <span style="font-size:12px; color:#57606f;">mm</span>
                     </div>
                 </div>
-                <!-- 2. 拼版連動計算 -->
                 <div class="custom-row">
                     <div class="custom-label" style="color:var(--accent);">2. 裁切與拼版連動</div>
                     <div class="custom-inputs">
@@ -141,7 +136,6 @@
                         <span style="font-size:12px; color:#57606f;">mm</span>
                     </div>
                 </div>
-                <!-- 3. 輸出大紙 -->
                 <div class="custom-row">
                     <div class="custom-label">3. 輸出大紙底板</div>
                     <div class="custom-inputs">
@@ -158,12 +152,11 @@
             <div class="form-group">
                 <label>裝訂與翻頁</label>
                 <select id="bindDirection" onchange="renderBlueprint()">
-                    <option value="right">左翻 (橫書常規)</option> //AI在生成code時寫反了，這邊以中文為
-                    <option value="left">右翻 (直書常規)</option>
+                    <option value="left" selected>左翻 (橫書常規)</option>
+                    <option value="right">右翻 (直書常規)</option>
                 </select>
             </div>
 
-            <!-- 防爬移補償 -->
             <div class="compensation-group">
                 <div class="compensation-header">
                     <input type="checkbox" id="enableCreep" onchange="toggleCreep()">
@@ -181,9 +174,10 @@
                         <label>紙材選擇</label>
                         <select id="paperDb" onchange="updateThickness()">
                             <option value="0" selected>自訂條數</option>
-                            <option value="12">白道林 100g</option>
-                            <option value="12">特銅 120g</option>
-                            <option value="15">雪銅 150g</option>
+                            <option value="10">道林 80g</option>
+                            <option value="13">道林 100g</option>
+                            <option value="8.5">雪銅 100g</option>
+                            <option value="14.5">雪銅 150g</option>
                         </select>
                     </div>
                     <div class="flex-item" style="max-width: 90px;">
@@ -225,12 +219,12 @@
         </div>
 
         <button class="btn-submit" onclick="generateImposition()">開始落版</button>
-        <div id="loadingText" class="loading">正在本機進行純物理遮罩落版運算，請稍候...</div>
+        <div id="loadingText" class="loading">處理中，請稍候...</div>
     </div>
 
     <!-- 右側藍圖 -->
     <div class="panel-right">
-        <h2>拼版折臺示意 (藍圖預覽)</h2>
+        <h2>拼版折臺示意</h2>
         <div class="blueprint-container" id="blueprintContainer">
             <div style="color:#a1a1a1; text-align:center; padding-top:40px; font-size:13px;">
                 請先上傳檔案，系統將在此生成拼版示意。
@@ -240,10 +234,9 @@
 </div>
 
 <script>
-    // --- 核心幾何數據配置 ---
     const SPECS = {
-        'A4': { pW: 440, pH: 313, rW: 216, rH: 303, cW: 213, bleed: 3, alert: "【A4開本】單頁含出血 216x303，內裁 3mm，將置中落於 440x313 (A3大紙)。" },
-        'A5': { pW: 313, pH: 220, rW: 154.5, rH: 216, cW: 151.5, bleed: 3, alert: "【A5開本】單頁含出血 154.5x216，內裁 3mm，將置中落於 313x220 (A4大紙)。" }
+        'A4': { pW: 440, pH: 313, rW: 216, rH: 303, cW: 213, bleed: 3, alert: "【A4開本】自動尋找畫布中心點，精準去除內側 3mm 後，無縫併攏於 440x313 大紙。" },
+        'A5': { pW: 313, pH: 220, rW: 154.5, rH: 216, cW: 151.5, bleed: 3, alert: "【A5開本】自動尋找畫布中心點，精準去除內側 3mm 後，無縫併攏於 313x220 大紙。" }
     };
     
     let activeSpec = SPECS['A4'];
@@ -252,13 +245,12 @@
 
     window.onload = function() {
         applyPreset();
-        updateThickness(); // 確保初始鎖定狀態正確
+        updateThickness();
         initSortable();
         initDragAndDrop();
         initTwoWayBinding();
     };
 
-    // --- 開本介面與檔名處理 ---
     function applyPreset() {
         const presetKey = document.getElementById('presetSelect').value;
         const alertBox = document.getElementById('presetAlert');
@@ -281,20 +273,17 @@
         renderBlueprint();
     }
 
-    // --- 自訂尺寸：雙向連動算式 ---
     function initTwoWayBinding() {
         const pageWInput = document.getElementById('c_pageW');
         const bleedInput = document.getElementById('c_bleed');
         const spreadInput = document.getElementById('c_spread');
 
-        // 當單頁寬度或內側裁切改變時 -> 算拼版寬度
         const calcSpread = () => {
             let pW = parseFloat(pageWInput.value) || 0;
             let bl = parseFloat(bleedInput.value) || 0;
-            spreadInput.value = ((pW - bl) * 2).toFixed(1).replace(/\.0$/, ''); // 去除整數小數點
+            spreadInput.value = ((pW - bl) * 2).toFixed(1).replace(/\.0$/, '');
         };
 
-        // 當拼版寬度改變時 -> 逆算內側裁切
         const calcBleed = () => {
             let pW = parseFloat(pageWInput.value) || 0;
             let sp = parseFloat(spreadInput.value) || 0;
@@ -306,7 +295,6 @@
         spreadInput.addEventListener('input', calcBleed);
     }
 
-    // --- 紙厚防呆鎖定 ---
     function toggleCreep() {
         const sub = document.getElementById('creepSub');
         document.getElementById('enableCreep').checked ? sub.classList.remove('disabled-sub') : sub.classList.add('disabled-sub');
@@ -317,16 +305,13 @@
         const thickInput = document.getElementById('paperThickness');
         
         if (selectVal !== "0") {
-            // 選預設紙材：套用數字、變灰、鎖定
             thickInput.value = selectVal;
             thickInput.setAttribute('readonly', 'true');
         } else {
-            // 選自訂條數：解鎖、恢復白底
             thickInput.removeAttribute('readonly');
         }
     }
 
-    // --- 上傳與清單邏輯 ---
     function initDragAndDrop() {
         const container = document.getElementById('uploadContainer');
         const fileInput = document.getElementById('fileInput');
@@ -418,12 +403,11 @@
             statusEl.innerText = `總計: ${count} 頁 ⚠️ 缺 ${4 - (count % 4)} 頁，將在尾端自動補白`;
         } else {
             statusEl.className = "status-bar status-ok";
-            statusEl.innerText = `總計: ${count} 頁 ✅ 完美符合 4 的倍數`;
+            statusEl.innerText = `總計: ${count} 頁 ✅ 符合 4 的倍數`;
         }
         renderBlueprint();
     }
 
-    // --- 右側藍圖預覽 ---
     function renderBlueprint() {
         const container = document.getElementById('blueprintContainer');
         if (globalPages.length === 0) {
@@ -437,9 +421,12 @@
 
         const totalSheets = workingPages.length / 4;
         for (let s = 0; s < totalSheets; s++) {
+            // 預設為左翻 (橫書) 邏輯
             let fl = workingPages.length - (2 * s), fr = 1 + (2 * s);
             let bl = 2 + (2 * s), br = workingPages.length - 1 - (2 * s);
-            if (!isRightBind) { [fl, fr] = [fr, fl]; [bl, br] = [br, bl]; }
+            
+            // 如果為右翻 (直書)，則左右頁面鏡像對調
+            if (isRightBind) { [fl, fr] = [fr, fl]; [bl, br] = [br, bl]; }
 
             container.appendChild(createSheetCard(`第 ${s + 1} 張紙 - 正面 (外側)`, fl, fr, workingPages));
             container.appendChild(createSheetCard(`第 ${s + 1} 張紙 - 背面 (內側)`, bl, br, workingPages));
@@ -460,7 +447,7 @@
     }
 
     // ===================================================
-    // 👑 引擎：CropBox 無白畫面物理遮罩落版
+    // 👑 v8.1 核心引擎：1:1 物理遮罩完美不縮水版
     // ===================================================
     async function generateImposition() {
         if (globalPages.length === 0) return alert("請先上傳檔案！");
@@ -469,21 +456,23 @@
         try {
             let pW, pH, rW, rH, cW, bleed;
             
-            // 如果選自訂尺寸，抓取面板即時輸入的數值
             if (document.getElementById('presetSelect').value === 'custom') {
                 rW = parseFloat(document.getElementById('c_pageW').value);
                 rH = parseFloat(document.getElementById('c_pageH').value);
                 bleed = parseFloat(document.getElementById('c_bleed').value);
                 pW = parseFloat(document.getElementById('c_paperW').value);
                 pH = parseFloat(document.getElementById('c_paperH').value);
-                cW = rW - bleed; // 透過裁切量計算出裁切後的寬度
+                cW = rW - bleed; 
             } else {
                 ({ pW, pH, rW, rH, cW, bleed } = activeSpec);
             }
 
-            const ptPW = pW * mmToPt, ptPH = pH * mmToPt;
-            const ptRW = rW * mmToPt, ptRH = rH * mmToPt;
-            const ptCW = cW * mmToPt, ptBleed = bleed * mmToPt;
+            const ptPW = pW * mmToPt;
+            const ptPH = pH * mmToPt;
+            const ptRW = rW * mmToPt;
+            const ptRH = rH * mmToPt;
+            const ptCW = cW * mmToPt;
+            const ptBleed = bleed * mmToPt;
 
             const enableCreep = document.getElementById('enableCreep').checked;
             const creepMode = document.getElementById('creepMode').value;
@@ -500,10 +489,10 @@
             for (let s = 0; s < totalSheets; s++) {
                 let fl = workingPages.length - (2 * s), fr = 1 + (2 * s);
                 let bl = 2 + (2 * s), br = workingPages.length - 1 - (2 * s);
-                if (!isRightBind) { [fl, fr] = [fr, fl]; [bl, br] = [br, bl]; }
+                if (isRightBind) { [fl, fr] = [fr, fl]; [bl, br] = [br, bl]; }
 
-                await buildSheetSafe(impositionDoc, workingPages, cache, fl, fr, ptPW, ptPH, ptCW, ptRH, ptBleed, s, enableCreep, creepMode, ptThickness, 'FRONT');
-                await buildSheetSafe(impositionDoc, workingPages, cache, bl, br, ptPW, ptPH, ptCW, ptRH, ptBleed, s, enableCreep, creepMode, ptThickness, 'BACK');
+                await buildSheetSafe(impositionDoc, workingPages, cache, fl, fr, ptPW, ptPH, ptCW, ptRW, ptRH, ptBleed, s, enableCreep, creepMode, ptThickness);
+                await buildSheetSafe(impositionDoc, workingPages, cache, bl, br, ptPW, ptPH, ptCW, ptRW, ptRH, ptBleed, s, enableCreep, creepMode, ptThickness);
             }
 
             const pdfBytes = await impositionDoc.save();
@@ -518,47 +507,73 @@
         finally { document.getElementById('loadingText').style.display = 'none'; }
     }
 
-    async function buildSheetSafe(doc, pages, cache, lNum, rNum, pW, pH, cW, rH, bleed, sheetIdx, enableCreep, mode, thickness) {
-        const newPage = doc.addPage([pW, pH]);
-        const spreadW = cW * 2;
-        const curThickness = enableCreep ? sheetIdx * thickness : 0;
+    async function buildSheetSafe(doc, pages, cache, lNum, rNum, ptPW, ptPH, ptCW, ptRW, ptRH, ptBleed, sheetIdx, enableCreep, mode, ptThickness) {
+        const newPage = doc.addPage([ptPW, ptPH]); 
+        const spreadW_pt = ptCW * 2;
+        const curThickness_pt = enableCreep ? sheetIdx * ptThickness : 0;
         
         let scale = 1.0, shift = 0;
-        if (enableCreep && curThickness > 0) {
-            if (mode === 'scale') scale = spreadW / (spreadW + curThickness);
-            if (mode === 'shift') shift = curThickness;
+        if (enableCreep && curThickness_pt > 0) {
+            if (mode === 'scale') scale = spreadW_pt / (spreadW_pt + curThickness_pt);
+            if (mode === 'shift') shift = curThickness_pt;
         }
 
-        const finalTx = (pW / 2) - (cW * scale);
-        const finalTy = (pH / 2) - ((rH / 2) * scale);
+        // 精準置中座標
+        const finalTx = (ptPW / 2) - (ptCW * scale);
+        const finalTy = (ptPH / 2) - ((ptRH / 2) * scale);
 
-        // --- 左頁 ---
+        // --- 左頁 (提取物理遮罩，切除右側出血) ---
         if (pages[lNum - 1].type === 'file') {
             const srcDoc = await getSrcDoc(pages[lNum - 1], cache);
             const srcPage = srcDoc.getPage(pages[lNum - 1].pageIndex);
-            const box = srcPage.getMediaBox();
             
-            // 安全裁切 CropBox: 保留左側，限縮寬度為成品寬
-            srcPage.setCropBox(box.x, box.y, cW, rH);
-            const [embeddedL] = await doc.embedPages([srcPage]);
+            // 抓取包含裁切線的整個大畫布 (MediaBox)
+            const box = srcPage.getCropBox() || srcPage.getMediaBox();
             
+            // 找出圖稿左下角的絕對基準點
+            const artX = box.x + (box.width - ptRW) / 2;
+            const artY = box.y + (box.height - ptRH) / 2;
+            
+            // 【修復關鍵】：使用 embedPage 搭配 boundingBox 物理提取指定像素！
+            // 寬度精準鎖定在 ptCW (保留左邊出血，去除右邊出血)
+            const embeddedL = await doc.embedPage(srcPage, {
+                left: artX,
+                bottom: artY,
+                right: artX + ptCW,
+                top: artY + ptRH
+            });
+            
+            // 畫上去保證是 1:1，絕對不會被強制縮小
             newPage.drawPage(embeddedL, {
-                x: finalTx + shift, y: finalTy, width: cW * scale, height: rH * scale
+                x: finalTx + shift, 
+                y: finalTy, 
+                width: ptCW * scale, 
+                height: ptRH * scale
             });
         }
 
-        // --- 右頁 ---
+        // --- 右頁 (提取物理遮罩，切除左側出血) ---
         if (pages[rNum - 1].type === 'file') {
             const srcDoc = await getSrcDoc(pages[rNum - 1], cache);
             const srcPage = srcDoc.getPage(pages[rNum - 1].pageIndex);
-            const box = srcPage.getMediaBox();
             
-            // 安全裁切 CropBox: 往右位移 bleed，限縮寬度為成品寬
-            srcPage.setCropBox(box.x + bleed, box.y, cW, rH);
-            const [embeddedR] = await doc.embedPages([srcPage]);
+            const box = srcPage.getCropBox() || srcPage.getMediaBox();
+            const artX = box.x + (box.width - ptRW) / 2;
+            const artY = box.y + (box.height - ptRH) / 2;
+            
+            // 右頁：從基準點往右退一個出血量開始提取
+            const embeddedR = await doc.embedPage(srcPage, {
+                left: artX + ptBleed,
+                bottom: artY,
+                right: artX + ptBleed + ptCW,
+                top: artY + ptRH
+            });
             
             newPage.drawPage(embeddedR, {
-                x: finalTx + (cW * scale) - shift, y: finalTy, width: cW * scale, height: rH * scale
+                x: finalTx + (ptCW * scale) - shift, 
+                y: finalTy, 
+                width: ptCW * scale, 
+                height: ptRH * scale
             });
         }
     }
