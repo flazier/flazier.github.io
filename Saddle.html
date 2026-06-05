@@ -175,9 +175,9 @@
                         <select id="paperDb" onchange="updateThickness()">
                             <option value="0" selected>自訂條數</option>
                             <option value="10">道林 80g</option>
-                            <option value="13">道林 100g</option>
-                            <option value="8.5">雪銅 100g</option>
-                            <option value="14.5">雪銅 150g</option>
+                            <option value="12">道林 100g</option>
+                            <option value="12">特銅 150g</option>
+                            <option value="14">雪銅 150g</option>
                         </select>
                     </div>
                     <div class="flex-item" style="max-width: 90px;">
@@ -235,8 +235,8 @@
 
 <script>
     const SPECS = {
-        'A4': { pW: 440, pH: 313, rW: 216, rH: 303, cW: 213, bleed: 3, alert: "【A4開本】自動尋找畫布中心點，精準去除內側 3mm 後，無縫併攏於 440x313 大紙。" },
-        'A5': { pW: 313, pH: 220, rW: 154.5, rH: 216, cW: 151.5, bleed: 3, alert: "【A5開本】自動尋找畫布中心點，精準去除內側 3mm 後，無縫併攏於 313x220 大紙。" }
+        'A4': { pW: 440, pH: 313, rW: 216, rH: 303, cW: 213, bleed: 3, alert: "【A4開本】去除內側 3mm 後，併攏於 440x313 大紙。" },
+        'A5': { pW: 313, pH: 220, rW: 154.5, rH: 216, cW: 151.5, bleed: 3, alert: "【A5開本】去除內側 3mm 後，併攏於 313x220 大紙。" }
     };
     
     let activeSpec = SPECS['A4'];
