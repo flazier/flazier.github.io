@@ -3,105 +3,116 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>實驗室預約系統測試</title>
+  <title>實驗室設備預約系統</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .form-group { margin-bottom: 15px; }
+    label { display: block; margin-bottom: 5px; }
+    select, input { padding: 8px; width: 100%; max-width: 300px; }
+    button { padding: 10px 20px; cursor: pointer; }
+  </style>
 </head>
-
-  
 <body>
+
   <h2>實驗室設備預約</h2>
-  
-  <form id="reservationForm">
-    <!-- 申請人 (暫代登入資訊) -->
-    <div>
-      <label for="applicant">申請人 (學號/姓名)：</label>
+
+  <form id="reserveForm">
+    <div class="form-group">
+      <label for="applicant">申請人姓名：</label>
       <input type="text" id="applicant" required>
     </div>
-    <br>
 
-    <!-- 設備與教室選單 -->
-    <div>
-      <label for="equipment">選擇設備與教室：</label>
+    <div class="form-group">
+      <label for="equipment">預約設備：</label>
       <select id="equipment" required>
-        <option value="">載入資料中...</option>
+        <option value="">資料載入中...</option>
       </select>
     </div>
-    <br>
 
-    <!-- 日期與時段 -->
-    <div>
+    <div class="form-group">
       <label for="reserveDate">預約日期：</label>
       <input type="date" id="reserveDate" required>
     </div>
-    <br>
-    <div>
+
+    <div class="form-group">
       <label for="timeSlot">預約時段：</label>
       <select id="timeSlot" required>
-        <option value="">請選擇時段...</option>
-        <option value="08:00-12:00">上午 (08:00 - 12:00)</option>
-        <option value="13:00-17:00">下午 (13:00 - 17:00)</option>
-        <option value="18:00-22:00">晚上 (18:00 - 22:00)</option>
+        <option value="">請先選擇日期</option>
       </select>
     </div>
-    <br>
 
-    <!-- 送出按鈕 -->
     <button type="submit">送出預約</button>
   </form>
 
   <script>
-    const apiUrl = "https://script.google.com/macros/s/AKfycbzUAe3-gkmtSiZ_YPPHbnLWhBF7jDNl8b5IhxOMRqRBti34hZqE8O7PUGK5ScfDVpD0fQ/exec";
-    const select = document.getElementById("equipment");
+    // 替換為你最新的 API 網址
+    const API_URL = 'https://script.google.com/macros/s/AKfycbz5xct111F7JZJCnRFejZ03O92HuuqSOSH8fSpHg5CaAYaTpI7icAF6wQyK4f3ZNOf88g/exec';
+    
+    let timeSlotData = [];
+    const dayMap = {0: "星期日", 1: "星期一", 2: "星期二", 3: "星期三", 4: "星期四", 5: "星期五", 6: "星期六"};
 
-    // 負責將資料繪製到選單的函式
-    function renderEquipment(data) {
-      select.innerHTML = '<option value="">請選擇...</option>';
-      data.forEach(item => {
-        const option = document.createElement("option");
-        option.value = item.id;
-        option.textContent = item.displayText;
-        select.appendChild(option);
-      });
-    }
+    // 網頁載入時，自動向 GAS 請求資料
+    window.onload = function() {
+      // 1. 取得設備清單
+      fetch(API_URL + '?action=getEquipment')
+        .then(response => response.json())
+        .then(data => {
+          const eqSelect = document.getElementById("equipment");
+          eqSelect.innerHTML = '<option value="">請選擇設備</option>';
+          data.forEach(item => {
+            const option = document.createElement("option");
+            option.value = item.id || item.displayText; 
+            option.textContent = item.displayText;
+            eqSelect.appendChild(option);
+          });
+        })
+        .catch(error => console.error('設備載入錯誤:', error));
 
-    // 1. 優先檢查本機快取，若有資料則瞬間載入
-    const cachedData = localStorage.getItem("gcaEquipmentList");
-    if (cachedData) {
-      renderEquipment(JSON.parse(cachedData));
-    }
+      // 2. 取得時段許可資料
+      fetch(API_URL + '?action=getTimeSlots')
+        .then(response => response.json())
+        .then(data => {
+          timeSlotData = data;
+        })
+        .catch(error => console.error('時段載入錯誤:', error));
+    };
 
-    // 2. 在背景向 GAS 請求最新資料，並更新快取
-    fetch(apiUrl + "?action=getEquipment", {
-      method: 'GET',
-      redirect: 'follow'
-    })
-      .then(response => response.json())
-      .then(data => {
-        // 將最新資料存入快取
-        localStorage.setItem("gcaEquipmentList", JSON.stringify(data));
-        // 更新選單畫面
-        renderEquipment(data);
-      })
-      .catch(error => {
-        console.error("API 讀取失敗：", error);
-        if (!cachedData) {
-          select.innerHTML = '<option value="">讀取失敗，請重試</option>';
-        }
-      });
+    // 3. 監聽日期變更，動態更新時段選單
+    document.getElementById("reserveDate").addEventListener("change", function(event) {
+      const selectedDate = new Date(event.target.value);
+      const dayString = dayMap[selectedDate.getDay()]; 
+      const timeSelect = document.getElementById("timeSlot");
+      
+      timeSelect.innerHTML = '<option value="">請選擇時段...</option>';
 
-    // 3. 監聽表單送出事件
-    document.getElementById("reservationForm").addEventListener("submit", function(event) {
-      event.preventDefault();
+      if (timeSlotData.length === 0) {
+        timeSelect.innerHTML = '<option value="">資料載入中，請稍候再試</option>';
+        return;
+      }
 
-      const requestData = {
-        applicant: document.getElementById("applicant").value,
-        equipmentId: document.getElementById("equipment").value,
-        date: document.getElementById("reserveDate").value,
-        timeSlot: document.getElementById("timeSlot").value
-      };
+      // 直接比對 slot.day 與 slot.status
+      const availableSlots = timeSlotData.filter(slot => 
+        slot.day === dayString && slot.status === "可借用"
+      );
 
-      console.log("準備送出的預約資料：", requestData);
-      alert("資料已收集，請按 F12 查看 Console 確認格式。");
+      if (availableSlots.length === 0) {
+        timeSelect.innerHTML = '<option value="">當日無可借用時段</option>';
+      } else {
+        availableSlots.forEach(slot => {
+          const option = document.createElement("option");
+          option.value = slot.time;
+          option.textContent = slot.time;
+          timeSelect.appendChild(option);
+        });
+      }
+    });
+
+    // 4. 攔截表單送出 (目前僅測試前端邏輯，後續再實作 POST 寫入)
+    document.getElementById("reserveForm").addEventListener("submit", function(e) {
+      e.preventDefault();
+      alert("前端資料讀取與篩選測試成功！後續步驟將實作 POST 將資料寫入預約總表。");
     });
   </script>
+
 </body>
 </html>
