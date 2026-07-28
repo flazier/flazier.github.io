@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>實驗室預約系統測試</title>
+</head>
+<body>
+
+  <h2>設備預約測試</h2>
+  
+  <label for="equipment">選擇設備與教室：</label>
+  <select id="equipment">
+    <option value="">載入資料中...</option>
+  </select>
+
+  <script>
+    // 填入你剛剛部署獲得的 API 網址
+    const apiUrl = "https://script.google.com/macros/s/AKfycbzUAe3-gkmtSiZ_YPPHbnLWhBF7jDNl8b5IhxOMRqRBti34hZqE8O7PUGK5ScfDVpD0fQ/exec";
+
+    // 在網址後方加上參數 ?action=getEquipment，呼叫我們寫好的動作
+    fetch(apiUrl + "?action=getEquipment", {
+	method: 'GET',
+	redirect: 'follow'
+	})
+      .then(response => response.json())
+      .then(data => {
+        const select = document.getElementById("equipment");
+        // 清空原本的「載入中」文字
+        select.innerHTML = '<option value="">請選擇...</option>';
+        
+        // 將 GAS 回傳的資料一筆一筆加入下拉選單
+        data.forEach(item => {
+          const option = document.createElement("option");
+          option.value = item.id;                 // 設定背後的 value 為設備代號 (例如 DP001)
+          option.textContent = item.displayText;  // 設定顯示文字為合併後的名稱 (例如 理光 C7200 (K1001))
+          select.appendChild(option);
+        });
+      })
+      .catch(error => {
+        console.error("讀取失敗：", error);
+        document.getElementById("equipment").innerHTML = '<option value="">讀取失敗，請重試</option>';
+      });
+  </script>
+
+</body>
+</html>
