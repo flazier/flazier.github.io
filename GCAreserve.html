@@ -6,34 +6,63 @@
   <title>實驗室預約系統測試</title>
 </head>
 <body>
-
-  <h2>設備預約測試</h2>
+  <h2>實驗室設備預約</h2>
   
-  <label for="equipment">選擇設備與教室：</label>
-  <select id="equipment">
-    <option value="">載入資料中...</option>
-  </select>
+  <form id="reservationForm">
+    <!-- 申請人 (暫代登入資訊) -->
+    <div>
+      <label for="applicant">申請人 (學號/姓名)：</label>
+      <input type="text" id="applicant" required>
+    </div>
+    <br>
+
+    <!-- 設備與教室選單 -->
+    <div>
+      <label for="equipment">選擇設備與教室：</label>
+      <select id="equipment" required>
+        <option value="">載入資料中...</option>
+      </select>
+    </div>
+    <br>
+
+    <!-- 日期與時間 -->
+    <div>
+      <label for="reserveDate">預約日期：</label>
+      <input type="date" id="reserveDate" required>
+    </div>
+    <br>
+    <div>
+      <label for="startTime">開始時間：</label>
+      <input type="time" id="startTime" required>
+    </div>
+    <br>
+    <div>
+      <label for="endTime">結束時間：</label>
+      <input type="time" id="endTime" required>
+    </div>
+    <br>
+
+    <!-- 送出按鈕 -->
+    <button type="submit">送出預約</button>
+  </form>
 
   <script>
-    // 填入你剛剛部署獲得的 API 網址
+    // 你的 API 網址
     const apiUrl = "https://script.google.com/macros/s/AKfycbzUAe3-gkmtSiZ_YPPHbnLWhBF7jDNl8b5IhxOMRqRBti34hZqE8O7PUGK5ScfDVpD0fQ/exec";
 
-    // 在網址後方加上參數 ?action=getEquipment，呼叫我們寫好的動作
+    // 1. 網頁載入時，取得設備清單
     fetch(apiUrl + "?action=getEquipment", {
-	method: 'GET',
-	redirect: 'follow'
-	})
+      method: 'GET',
+      redirect: 'follow'
+    })
       .then(response => response.json())
       .then(data => {
         const select = document.getElementById("equipment");
-        // 清空原本的「載入中」文字
         select.innerHTML = '<option value="">請選擇...</option>';
-        
-        // 將 GAS 回傳的資料一筆一筆加入下拉選單
         data.forEach(item => {
           const option = document.createElement("option");
-          option.value = item.id;                 // 設定背後的 value 為設備代號 (例如 DP001)
-          option.textContent = item.displayText;  // 設定顯示文字為合併後的名稱 (例如 理光 C7200 (K1001))
+          option.value = item.id;
+          option.textContent = item.displayText;
           select.appendChild(option);
         });
       })
@@ -41,7 +70,24 @@
         console.error("讀取失敗：", error);
         document.getElementById("equipment").innerHTML = '<option value="">讀取失敗，請重試</option>';
       });
-  </script>
 
+    // 2. 監聽表單送出事件
+    document.getElementById("reservationForm").addEventListener("submit", function(event) {
+      event.preventDefault(); // 防止表單預設的網頁重新載入行為
+
+      // 收集表單資料
+      const requestData = {
+        applicant: document.getElementById("applicant").value,
+        equipmentId: document.getElementById("equipment").value,
+        date: document.getElementById("reserveDate").value,
+        startTime: document.getElementById("startTime").value,
+        endTime: document.getElementById("endTime").value
+      };
+
+      // 測試用：在主控台印出準備送出的資料
+      console.log("準備送出的預約資料：", requestData);
+      alert("資料已收集，請按 F12 查看 Console 確認格式。");
+    });
+  </script>
 </body>
 </html>
