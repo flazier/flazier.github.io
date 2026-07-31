@@ -7,9 +7,10 @@
   <style>
     body { font-family: sans-serif; padding: 20px; }
     .form-group { margin-bottom: 15px; }
-    label { display: block; margin-bottom: 5px; }
-    select, input { padding: 8px; width: 100%; max-width: 300px; }
-    button { padding: 10px 20px; cursor: pointer; }
+    label { display: block; margin-bottom: 5px; font-weight: bold; }
+    select, input { padding: 8px; width: 100%; max-width: 300px; box-sizing: border-box; }
+    button { padding: 10px 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; }
+    button:disabled { background-color: #ccc; cursor: not-allowed; }
   </style>
 </head>
 <body>
@@ -19,7 +20,7 @@
   <form id="reserveForm">
     <div class="form-group">
       <label for="applicant">申請人姓名：</label>
-      <input type="text" id="applicant" required>
+      <input type="text" id="applicant" required placeholder="請輸入姓名">
     </div>
 
     <div class="form-group">
@@ -41,19 +42,22 @@
       </select>
     </div>
 
-    <button type="submit">送出預約</button>
+    <button type="submit" id="submitBtn">送出預約</button>
   </form>
 
   <script>
-    // 替換為你最新的 API 網址
-    const API_URL = 'https://script.google.com/macros/s/AKfycbz5xct111F7JZJCnRFejZ03O92HuuqSOSH8fSpHg5CaAYaTpI7icAF6wQyK4f3ZNOf88g/exec';
+    // 確認此網址與你最新部署的 GAS Web App 網址一致
+    const API_URL = 'https://script.google.com/macros/s/AKfycbxbZ6zmaG-zlsx24YAH-TTIqaaicBNtUjH8b7BUHvC7qSmTCMyjSeA7HP7NvCN7H_5XVQ/exec';
     
     let timeSlotData = [];
     const dayMap = {0: "星期日", 1: "星期一", 2: "星期二", 3: "星期三", 4: "星期四", 5: "星期五", 6: "星期六"};
 
-    // 網頁載入時，自動向 GAS 請求資料
     window.onload = function() {
-      // 1. 取得設備清單
+      // 限制只能選擇今天（含）以後的日期
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById("reserveDate").setAttribute('min', today);
+
+      // 載入設備清單
       fetch(API_URL + '?action=getEquipment')
         .then(response => response.json())
         .then(data => {
@@ -61,23 +65,23 @@
           eqSelect.innerHTML = '<option value="">請選擇設備</option>';
           data.forEach(item => {
             const option = document.createElement("option");
-            option.value = item.id || item.displayText; 
+            option.value = item.displayText;
             option.textContent = item.displayText;
             eqSelect.appendChild(option);
           });
         })
-        .catch(error => console.error('設備載入錯誤:', error));
+        .catch(error => console.error("設備載入錯誤：", error));
 
-      // 2. 取得時段許可資料
+      // 載入時段資料
       fetch(API_URL + '?action=getTimeSlots')
         .then(response => response.json())
         .then(data => {
           timeSlotData = data;
         })
-        .catch(error => console.error('時段載入錯誤:', error));
+        .catch(error => console.error("時段載入錯誤：", error));
     };
 
-    // 3. 監聽日期變更，動態更新時段選單
+    // 監聽日期變更事件
     document.getElementById("reserveDate").addEventListener("change", function(event) {
       const selectedDate = new Date(event.target.value);
       const dayString = dayMap[selectedDate.getDay()]; 
@@ -85,15 +89,9 @@
       
       timeSelect.innerHTML = '<option value="">請選擇時段...</option>';
 
-      if (timeSlotData.length === 0) {
-        timeSelect.innerHTML = '<option value="">資料載入中，請稍候再試</option>';
-        return;
-      }
+      if (timeSlotData.length === 0) return;
 
-      // 直接比對 slot.day 與 slot.status
-      const availableSlots = timeSlotData.filter(slot => 
-        slot.day === dayString && slot.status === "可借用"
-      );
+      const availableSlots = timeSlotData.filter(slot => slot.day === dayString && slot.status === "可借用");
 
       if (availableSlots.length === 0) {
         timeSelect.innerHTML = '<option value="">當日無可借用時段</option>';
@@ -107,12 +105,45 @@
       }
     });
 
-    // 4. 攔截表單送出 (目前僅測試前端邏輯，後續再實作 POST 寫入)
+    // 處理表單送出
     document.getElementById("reserveForm").addEventListener("submit", function(e) {
       e.preventDefault();
-      alert("前端資料讀取與篩選測試成功！後續步驟將實作 POST 將資料寫入預約總表。");
+      const submitBtn = document.getElementById("submitBtn");
+      submitBtn.disabled = true;
+      submitBtn.textContent = "資料處理中...";
+
+      const requestData = {
+        applicant: document.getElementById("applicant").value,
+        equipment: document.getElementById("equipment").value,
+        date: document.getElementById("reserveDate").value,
+        timeSlot: document.getElementById("timeSlot").value
+      };
+
+      fetch(API_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'text/plain;charset=utf-8' // 避免 CORS 預檢請求
+        },
+        body: JSON.stringify(requestData)
+      })
+      .then(response => response.json())
+      .then(data => {
+        if (data.status === "success") {
+          alert("預約成功！資料已送出。");
+          document.getElementById("reserveForm").reset();
+        } else {
+          alert("預約失敗，錯誤訊息：" + data.message);
+        }
+      })
+      .catch(error => {
+        alert("網路連線發生錯誤，請稍後再試。");
+        console.error(error);
+      })
+      .finally(() => {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "送出預約";
+      });
     });
   </script>
-
 </body>
 </html>
